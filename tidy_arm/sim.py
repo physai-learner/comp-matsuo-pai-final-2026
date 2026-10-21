@@ -6,6 +6,8 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
+from tidy_arm.camera import Camera
+
 SCENE = Path(__file__).resolve().parent.parent / "assets" / "franka_emika_panda" / "tabletop.xml"
 
 ITEMS = ("red_box", "green_cylinder", "purple_box")
@@ -99,6 +101,10 @@ class Sim:
             self._renderer = mujoco.Renderer(self.model, IMAGE_HEIGHT, IMAGE_WIDTH)
         self._renderer.update_scene(self.data, camera=camera)
         return self._renderer.render()
+
+    def camera(self, name: str = "overhead") -> Camera:
+        """`render(name)` の画像に対応する画素⇔ワールド座標の変換。"""
+        return Camera.from_model(self.model, self.data, name, IMAGE_WIDTH, IMAGE_HEIGHT)
 
     def close(self) -> None:
         if self._renderer is not None:
