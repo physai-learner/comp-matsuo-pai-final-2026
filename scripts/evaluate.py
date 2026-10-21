@@ -127,7 +127,8 @@ def run_one(task: Task, seed: int, planner_name: str, claude: ClaudePlanner | No
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--planner", choices=["oracle", "claude"], default="oracle")
-    ap.add_argument("--seeds", type=int, default=3, help="配置の乱数 0..N-1")
+    ap.add_argument("--seeds", type=int, default=3, help="配置の乱数 S..S+N-1")
+    ap.add_argument("--seed-start", type=int, default=0, help="S（既に回した配置を足すとき）")
     ap.add_argument("--tasks", nargs="*", help="名前の前方一致で絞る（例: basic spatial_left）")
     ap.add_argument("--effort", default="medium")
     ap.add_argument("--out", type=Path)
@@ -142,7 +143,7 @@ def main() -> None:
     with out.open("w", newline="", encoding="utf-8-sig") as f:
         writer = None
         for task in tasks:
-            for seed in range(args.seeds):
+            for seed in range(args.seed_start, args.seed_start + args.seeds):
                 row = run_one(task, seed, args.planner, claude)
                 rows.append(row)
                 if writer is None:
