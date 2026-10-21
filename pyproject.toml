@@ -19,6 +19,10 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+train = [
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
+]
 
 [build-system]
 requires = ["hatchling"]
