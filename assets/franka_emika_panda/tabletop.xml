@@ -1,7 +1,10 @@
 <mujoco model="tabletop tidy">
   <include file="panda.xml"/>
 
-  <option timestep="0.002" cone="elliptic" impratio="10"/>
+  <!-- multiccd（既定で有効）だと円柱が指先パッドの細い箱に引っかかり、指を開いても離れない -->
+  <option timestep="0.002" cone="elliptic" impratio="10">
+    <flag multiccd="disable"/>
+  </option>
 
   <visual>
     <headlight diffuse="0.3 0.3 0.3" ambient="0.25 0.25 0.25" specular="0 0 0"/>

@@ -159,9 +159,9 @@ class Sim:
             self.step()
         self.settle(0.2)
 
-    def grip(self, closed: bool) -> None:
+    def grip(self, closed: bool, seconds: float = 0.6) -> None:
         self.data.ctrl[ARM_JOINTS] = GRIP_CLOSED if closed else GRIP_OPEN
-        self.settle(0.6)
+        self.settle(seconds)
 
     def pick_and_place(self, pick: np.ndarray, place: np.ndarray, hover: float = 0.15) -> None:
         """机上の点 pick の物をつかみ、点 place に置く（どちらも机上の xy、z は把持高さ）。"""
@@ -170,9 +170,12 @@ class Sim:
         self.grip(False)
         self.move_to(pick + up, 1.2)
         self.move_to(pick, 0.8)
-        self.grip(True)
+        self.grip(True, 1.0)  # 指が閉じ切る前に持ち上げると、円柱が片方の指だけで支えられて抜ける
         self.move_to(pick + up, 0.8)
-        self.move_to(place + up, 1.2)
-        self.move_to(place + np.array([0, 0, 0.03]), 0.6)
+        # 速く振ると円柱が遠心力で抜ける＝距離に比例させる（0.5m で約2秒）
+        self.move_to(place + up, max(1.2, 4.0 * np.linalg.norm(place[:2] - pick[:2])))
+        # 離す高さ＝把持高さ＋2cm。下げ過ぎると、アームの沈み（〜7mm）で底が皿に食い込んだまま挟み、
+        # 開いた瞬間に跳ねる。上げ過ぎると円柱（高さ 6cm）が倒れて転がる
+        self.move_to(place + np.array([0, 0, 0.02]), 0.6)
         self.grip(False)
         self.move_to(place + up, 0.6)

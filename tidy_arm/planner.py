@@ -19,8 +19,11 @@ MODEL = "claude-opus-5-5"
 # 1cm ずれても視差は作業範囲で 3mm 程度＝指の開き 8cm に対して無視できる
 ITEM_TOP_Z = 0.05
 PLATE_TOP_Z = 0.008
-# 把持点の高さ（物の下寄り）。置くときも同じ高さまで下ろす
-GRASP_Z = 0.025
+# 把持点の高さ。置くときも同じ高さまで下ろす。低いと円柱（高さ 6cm）の上端が指の付け根に当たり、
+# 指が閉じ切らない（2.5cm で失敗・3cm で改善を実測）。箱（高さ 4.4cm）も指先の当たる範囲に収まる
+GRASP_Z = 0.03
+# 同じ皿に2つ置くときの間隔（皿の半径 0.07 の内側に収まる）
+PLATE_SPACING = 0.06
 
 SYSTEM_PROMPT = """\
 あなたはロボットアームの作業計画を立てる係です。
@@ -31,7 +34,8 @@ SYSTEM_PROMPT = """\
 - item: 運ぶ物の見た目を短い日本語で（例: 赤い箱）
 - pick: その物の上面の中心の画素
 - place_target: 置き先の見た目を短い日本語で（例: 青い皿）
-- place: 置き先の皿の中心の画素
+- place: 置き先の皿の中心の画素。同じ皿に2つ置くときは、重ならないよう
+  皿の中心から左右へ約15画素ずつずらした点にする（皿の直径は約80画素）
 画素は画像の左上が原点で、u が右向き、v が下向き、単位は画素です。
 画像の大きさは利用者のメッセージに書きます。
 
@@ -147,23 +151,28 @@ class OraclePlanner:
 
     sim: Sim
     moves: list[tuple[str, str]]  # (物, 皿) の実行順
+    problem: str = ""  # 空でなければ moves を無視して「計画できない」と返す
 
     def plan(self, image: np.ndarray, instruction: str) -> Plan:
+        if self.problem:
+            return Plan(moves=[], problem=self.problem)
         cam = self.sim.camera()
 
         def px(point: np.ndarray) -> Pixel:
             u, v = cam.world_to_pixel(point)
             return Pixel(u=float(u), v=float(v))
 
+        plates = [p for _, p in self.moves]
         out = []
-        for item, plate in self.moves:
+        for k, (item, plate) in enumerate(self.moves):
             half_h = self.sim.model.geom_size[self.sim.model.body(item).geomadr[0]][-1]
             top = self.sim.item_pos(item) + np.array([0, 0, half_h])
-            out.append(
-                Move(
-                    item=item, pick=px(top), place_target=plate, place=px(self.sim.plate_pos(plate))
-                )
+            # 同じ皿に複数置くときは、画像の左右（ワールド y）へずらして重ねない
+            n, idx = plates.count(plate), plates[:k].count(plate)
+            place = self.sim.plate_pos(plate) + np.array(
+                [0, (idx - (n - 1) / 2) * PLATE_SPACING, 0]
             )
+            out.append(Move(item=item, pick=px(top), place_target=plate, place=px(place)))
         return Plan(moves=out, problem="")
 
 
