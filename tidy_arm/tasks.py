@@ -149,6 +149,11 @@ TASKS: list[Task] = [
     # 実行できない・決められない：problem を返すのが正解
     Task("infeasible_item", "infeasible", "青い箱を黄色い皿へ", expect_problem=True),
     Task("infeasible_plate", "infeasible", "赤い箱を緑の皿に置いて", expect_problem=True),
+    # 次の2件は解釈が割れる（初回の評価後に判明・正解は書き換えずに残す）。真上からは円柱が球にも
+    # 見える／「箱を」は「箱を全部」とも読める
     Task("infeasible_ball", "infeasible", "ボールを青い皿へ", expect_problem=True),
     Task("ambiguous_box", "infeasible", "箱を青い皿へ", expect_problem=True),
+    # 上の2件と同じ狙いで、解釈が割れないように書いたもの
+    Task("infeasible_white_ball", "infeasible", "白いボールを青い皿へ", expect_problem=True),
+    Task("ambiguous_that_box", "infeasible", "さっきの箱を青い皿へ戻して", expect_problem=True),
 ]
