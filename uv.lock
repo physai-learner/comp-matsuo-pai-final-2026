@@ -75,6 +75,7 @@ dependencies = [
     { name = "imageio-ffmpeg" },
     { name = "mujoco" },
     { name = "numpy" },
+    { name = "pillow" },
     { name = "python-dotenv" },
 ]
 
@@ -91,6 +92,7 @@ requires-dist = [
     { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
     { name = "mujoco", specifier = ">=3.16.0" },
     { name = "numpy", specifier = ">=2.5.4" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
 ]
 

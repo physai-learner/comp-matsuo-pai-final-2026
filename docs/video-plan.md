@@ -17,8 +17,8 @@
 
 ## 撮影の手順
 
-- `scripts/run_instruction.py "<指示>" --planner claude --seed <配置> --video` で1場面ずつ MP4 を書き出す
-- 〔要実装：真上画像に Claude が指した点を重ねた静止画の書き出し〕
-- 〔要実装：断る場面で Claude の返答文を残す（字幕に使う）〕
+- `scripts/record_scenes.py --planner claude` で5場面（基本・複数・位置関係・断る・ボール）を `outputs/scenes/claude/<場面>/` へ書き出す。1場面に真上画像 `overhead.png`・計画を重ねた `plan.png`・指示と返答文の `plan.json`・正面の動画 `video.mp4`
+- 場面を足すときは同スクリプトの `SCENES` に（フォルダ名・指示の名前・配置）を足す。1つだけなら `scripts/run_instruction.py "<指示>" --planner claude --seed <配置> --video --name <フォルダ名>`
+- 注記の見た目だけ直すときは `--redraw`（API を呼ばない）
 - 字幕・つなぎは動画編集ソフトで行う。〔要決定：ソフト〕
 - 画面に個人情報（ユーザー名・パス・通知）を映さない。シミュレータの書き出し映像だけで組む
