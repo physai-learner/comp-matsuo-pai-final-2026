@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from tidy_arm import tasks
 from tidy_arm.planner import OraclePlanner, Plan
 from tidy_arm.sim import ITEMS, PLATES, Sim
 from tidy_arm.tasks import TASKS
@@ -27,7 +28,9 @@ def test_tasks_are_well_formed(sim):
     for t in TASKS:
         moves = t.expected(sim)
         assert bool(moves) != t.expect_problem, t.name
-        for item, plate in moves:
+        answers, problem_ok = t.accepted(sim)
+        assert problem_ok or answers, t.name
+        for item, plate in [m for a in answers for m in a]:
             assert item in ITEMS and plate in PLATES, t.name
 
 
@@ -43,19 +46,31 @@ def _task(name):
 
 
 def test_judge_classifies_mistakes_without_moving(sim):
-    task = _task("basic_red_box_plate_blue")
-    expected = task.expected(sim)
+    accepted = _task("basic_red_box_plate_blue").accepted(sim)
     swapped = OraclePlanner(sim, [("purple_box", "plate_blue")]).plan(None, "")
-    assert evaluate.judge(sim, task, swapped, expected) == "wrong_item"
+    assert evaluate.judge(sim, swapped, *accepted) == "wrong_item"
     misplaced = OraclePlanner(sim, [("red_box", "plate_yellow")]).plan(None, "")
-    assert evaluate.judge(sim, task, misplaced, expected) == "wrong_place"
-    assert evaluate.judge(sim, task, Plan(moves=[], problem="x"), expected) == "no_plan"
+    assert evaluate.judge(sim, misplaced, *accepted) == "wrong_place"
+    assert evaluate.judge(sim, Plan(moves=[], problem="x"), *accepted) == "no_plan"
     two = OraclePlanner(sim, [("red_box", "plate_blue")] * 2).plan(None, "")
-    assert evaluate.judge(sim, task, two, expected) == "wrong_count"
+    assert evaluate.judge(sim, two, *accepted) == "wrong_count"
 
 
 def test_judge_infeasible(sim):
-    task = _task("infeasible_ball")
-    assert evaluate.judge(sim, task, Plan(moves=[], problem="無い"), []) == "ok"
+    accepted = _task("infeasible_ball").accepted(sim)
+    assert evaluate.judge(sim, Plan(moves=[], problem="無い"), *accepted) == "ok"
     plan = OraclePlanner(sim, [("red_box", "plate_blue")]).plan(None, "")
-    assert evaluate.judge(sim, task, plan, []) == "should_refuse"
+    assert evaluate.judge(sim, plan, *accepted) == "should_refuse"
+
+
+def test_ambiguous_box_accepts_both_boxes(sim):
+    accepted = _task("ambiguous_box").accepted(sim)
+    assert evaluate.judge(sim, Plan(moves=[], problem="どれ？"), *accepted) == "ok"
+    one = OraclePlanner(sim, [("red_box", "plate_blue")]).plan(None, "")
+    assert evaluate.judge(sim, one, *accepted) == "wrong_count"
+
+
+def test_close_call_accepts_either_or_holding_back():
+    best = tasks._best(["a", "b", "c"], {"a": 0.547, "b": 0.548, "c": 0.60}.get)
+    assert best == ["a", "b"]
+    assert tasks._best(["a", "b"], {"a": 0.50, "b": 0.53}.get) == ["a"]

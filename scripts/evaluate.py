@@ -4,7 +4,8 @@ uv run python scripts/evaluate.py                       # 正解計画（配線�
 uv run python scripts/evaluate.py --planner claude      # .env のキーを使う・1行1回の呼び出し
 
 結果（1行＝1試行）:
-  ok            正解の物が正解の皿に載った（実行できない指示では、計画を出さず理由を返した）
+  ok            正解の物が正解の皿に載った（実行できない指示では、計画を出さず理由を返した）。
+                位置関係が僅差（2cm 未満）の配置では、どちらを選んでも・保留しても正解
   plan:<kind>   計画を得られなかった（refusal / bad_output / out_of_image）
   no_plan       実行できる指示なのに計画を出さなかった
   should_refuse 実行できない指示なのに計画を出した
@@ -60,26 +61,32 @@ def ground(sim: Sim, plan: Plan) -> tuple[list[tuple[str | None, str | None]], l
     return pairs, errors
 
 
-def judge(sim: Sim, task: Task, plan: Plan, expected) -> str:
-    if task.expect_problem:
-        return "ok" if not plan.moves else "should_refuse"
+def judge(sim: Sim, plan: Plan, answers: list, problem_ok: bool) -> str:
+    """answers＝正解になる計画の候補（僅差・解釈の割れで複数あり得る）。"""
     if not plan.moves:
-        return "no_plan"
-    if len(plan.moves) != len(expected):
+        return "ok" if problem_ok else "no_plan"
+    if not answers:
+        return "should_refuse"
+    same_count = [a for a in answers if len(a) == len(plan.moves)]
+    if not same_count:
         return "wrong_count"
     pairs, _ = ground(sim, plan)
-    if Counter(i for i, _ in pairs) != Counter(i for i, _ in expected):
+    items = Counter(i for i, _ in pairs)
+    same_items = [a for a in same_count if Counter(i for i, _ in a) == items]
+    if not same_items:
         return "wrong_item"
-    if Counter(pairs) != Counter(expected):
+    match = next((a for a in same_items if Counter(a) == Counter(pairs)), None)
+    if match is None:
         return "wrong_place"
     execute(sim, plan)
-    return "ok" if all(sim.on_plate(i, p) for i, p in expected) else "exec_fail"
+    return "ok" if all(sim.on_plate(i, p) for i, p in match) else "exec_fail"
 
 
 def run_one(task: Task, seed: int, planner_name: str, claude: ClaudePlanner | None) -> dict:
     sim = Sim(seed=seed)
     try:
         expected = task.expected(sim)
+        answers, problem_ok = task.accepted(sim)
         image = sim.render("overhead")
         if planner_name == "oracle":
             planner = OraclePlanner(sim, expected, problem="実行できない" * task.expect_problem)
@@ -91,7 +98,7 @@ def run_one(task: Task, seed: int, planner_name: str, claude: ClaudePlanner | No
             plan = planner.plan(image, task.instruction)
             plan_sec = time.perf_counter() - t0
             _, errors = ground(sim, plan)
-            result = judge(sim, task, plan, expected)
+            result = judge(sim, plan, answers, problem_ok)
             moves = [(m.item, m.place_target) for m in plan.moves]
             problem = plan.problem
         except PlanError as e:
@@ -103,7 +110,8 @@ def run_one(task: Task, seed: int, planner_name: str, claude: ClaudePlanner | No
             "category": task.category,
             "seed": seed,
             "instruction": task.instruction,
-            "expected": expected,
+            "expected": answers,
+            "problem_ok": problem_ok,
             "result": result,
             "plan_moves": moves,
             "problem": problem,

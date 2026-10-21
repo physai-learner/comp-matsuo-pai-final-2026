@@ -15,6 +15,8 @@ ITEM_JA = {"red_box": "赤い箱", "green_cylinder": "緑の円柱", "purple_box
 PLATE_JA = {"plate_blue": "青い皿", "plate_yellow": "黄色い皿"}
 
 Moves = list[tuple[str, str]]
+# 位置関係の比べる量の差がこれ未満なら僅差とみなし、どちらを選んでも、判断を保留しても正解にする
+TIE = 0.02
 
 
 @dataclass(frozen=True)
@@ -22,36 +24,55 @@ class Task:
     name: str
     category: str  # basic / paraphrase / multi / spatial / infeasible
     instruction: str
-    moves: Moves | Callable[[Sim], Moves] = ()
+    # 関数なら配置から正解の候補を求める（僅差で複数あれば、どれでも・保留しても正解）
+    moves: Moves | Callable[[Sim], list[Moves]] = ()
     # True なら計画係は moves を空にして problem を返すのが正解
     expect_problem: bool = False
+    # expect_problem の指示でも、計画を出して正解になる読み方（解釈が割れるもの）
+    also: tuple[Moves, ...] = ()
+
+    def accepted(self, sim: Sim) -> tuple[list[Moves], bool]:
+        """正解になる計画の候補と、保留（moves を空にして problem）が正解かどうか。"""
+        if self.expect_problem:
+            return [list(m) for m in self.also], True
+        if callable(self.moves):
+            answers = self.moves(sim)
+            return answers, len(answers) > 1
+        return [list(self.moves)], False
 
     def expected(self, sim: Sim) -> Moves:
-        return self.moves(sim) if callable(self.moves) else list(self.moves)
+        """代表の正解（正解計画とテストで使う）。保留が正解の指示では空。"""
+        return [] if self.expect_problem else self.accepted(sim)[0][0]
 
 
 def _xy(sim: Sim, name: str) -> np.ndarray:
     return (sim.item_pos(name) if name in ITEMS else sim.plate_pos(name))[:2]
 
 
-def _leftmost(sim: Sim) -> str:
-    return max(ITEMS, key=lambda n: _xy(sim, n)[1])
+def _best(names, key) -> list[str]:
+    """key が最小のもの。差が TIE 未満の僅差は全部返す（最小のものが先頭）。"""
+    ranked = sorted(names, key=key)
+    return [n for n in ranked if key(n) - key(ranked[0]) < TIE]
 
 
-def _rightmost(sim: Sim) -> str:
-    return min(ITEMS, key=lambda n: _xy(sim, n)[1])
+def _leftmost(sim: Sim) -> list[str]:
+    return _best(ITEMS, lambda n: -_xy(sim, n)[1])
 
 
-def _nearest_robot(sim: Sim) -> str:
-    return min(ITEMS, key=lambda n: np.linalg.norm(_xy(sim, n)))
+def _rightmost(sim: Sim) -> list[str]:
+    return _best(ITEMS, lambda n: _xy(sim, n)[1])
 
 
-def _nearest(sim: Sim, target: str, names) -> str:
-    return min(names, key=lambda n: np.linalg.norm(_xy(sim, n) - _xy(sim, target)))
+def _nearest_robot(sim: Sim) -> list[str]:
+    return _best(ITEMS, lambda n: np.linalg.norm(_xy(sim, n)))
 
 
-def _farthest(sim: Sim, target: str, names) -> str:
-    return max(names, key=lambda n: np.linalg.norm(_xy(sim, n) - _xy(sim, target)))
+def _nearest(sim: Sim, target: str, names) -> list[str]:
+    return _best(names, lambda n: np.linalg.norm(_xy(sim, n) - _xy(sim, target)))
+
+
+def _farthest(sim: Sim, target: str, names) -> list[str]:
+    return _best(names, lambda n: -np.linalg.norm(_xy(sim, n) - _xy(sim, target)))
 
 
 def _basic() -> list[Task]:
@@ -120,39 +141,45 @@ TASKS: list[Task] = [
         "spatial_left",
         "spatial",
         "一番左にある物を青い皿へ",
-        lambda s: [(_leftmost(s), "plate_blue")],
+        lambda s: [[(i, "plate_blue")] for i in _leftmost(s)],
     ),
     Task(
         "spatial_robot",
         "spatial",
         "ロボットに一番近い物を黄色い皿へ",
-        lambda s: [(_nearest_robot(s), "plate_yellow")],
+        lambda s: [[(i, "plate_yellow")] for i in _nearest_robot(s)],
     ),
     Task(
         "spatial_near_plate",
         "spatial",
         "青い皿に一番近い物を青い皿にのせて",
-        lambda s: [(_nearest(s, "plate_blue", ITEMS), "plate_blue")],
+        lambda s: [[(i, "plate_blue")] for i in _nearest(s, "plate_blue", ITEMS)],
     ),
     Task(
         "spatial_far_plate",
         "spatial",
         "一番右の物を、その物から遠い方の皿へ",
-        lambda s: [(_rightmost(s), _farthest(s, _rightmost(s), PLATES))],
+        lambda s: [[(i, p)] for i in _rightmost(s) for p in _farthest(s, i, PLATES)],
     ),
     Task(
         "spatial_near_red",
         "spatial",
         "赤い箱を、赤い箱に近い方の皿に置いて",
-        lambda s: [("red_box", _nearest(s, "red_box", PLATES))],
+        lambda s: [[("red_box", p)] for p in _nearest(s, "red_box", PLATES)],
     ),
     # 実行できない・決められない：problem を返すのが正解
     Task("infeasible_item", "infeasible", "青い箱を黄色い皿へ", expect_problem=True),
     Task("infeasible_plate", "infeasible", "赤い箱を緑の皿に置いて", expect_problem=True),
-    # 次の2件は解釈が割れる（初回の評価後に判明・正解は書き換えずに残す）。真上からは円柱が球にも
-    # 見える／「箱を」は「箱を全部」とも読める
+    # 真上からは円柱が球にも見える（初回の評価後に判明）。視点の限界の例として正解は変えない
     Task("infeasible_ball", "infeasible", "ボールを青い皿へ", expect_problem=True),
-    Task("ambiguous_box", "infeasible", "箱を青い皿へ", expect_problem=True),
+    # 「箱を」は「箱を全部」とも読める＝箱2つを運ぶのも正解
+    Task(
+        "ambiguous_box",
+        "infeasible",
+        "箱を青い皿へ",
+        expect_problem=True,
+        also=([("red_box", "plate_blue"), ("purple_box", "plate_blue")],),
+    ),
     # 上の2件と同じ狙いで、解釈が割れないように書いたもの
     Task("infeasible_white_ball", "infeasible", "白いボールを青い皿へ", expect_problem=True),
     Task("ambiguous_that_box", "infeasible", "さっきの箱を青い皿へ戻して", expect_problem=True),
