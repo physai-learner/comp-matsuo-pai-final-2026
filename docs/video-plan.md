@@ -20,5 +20,5 @@
 - `scripts/record_scenes.py --planner claude` で5場面（基本・複数・位置関係・断る・ボール）を `outputs/scenes/claude/<場面>/` へ書き出す。1場面に真上画像 `overhead.png`・計画を重ねた `plan.png`・指示と返答文の `plan.json`・正面の動画 `video.mp4`
 - 場面を足すときは同スクリプトの `SCENES` に（フォルダ名・指示の名前・配置）を足す。1つだけなら `scripts/run_instruction.py "<指示>" --planner claude --seed <配置> --video --name <フォルダ名>`
 - 注記の見た目だけ直すときは `--redraw`（API を呼ばない）
-- 字幕・つなぎは `scripts/make_video.py` で行う（編集ソフトは使わない）。`outputs/video.mp4`＝1280×720・約1分54秒・音声なし。並びは 題名→仕組み→基本→複数→位置関係→断る→結果→ACT との比較→ROS 2 版（ノードのつながりと実行ログ・素材は `ros2/record_run.sh`）→限界（ボール）→終わり。各場面は頭3秒に plan.png、本編は左に正面映像・右に指示と Claude の返答。`--preview` で代表コマだけ確認できる。公開後に `--repo-url` を付けて書き直す
+- 字幕・つなぎは `scripts/make_video.py` で行う（編集ソフトは使わない）。`outputs/video.mp4`＝1280×720・約2分4秒・音声なし。並びは 題名→仕組み→基本→複数→位置関係→断る→結果→ACT との比較→ROS 2 版（ノードのつながりと実行ログ・素材は `ros2/record_run.sh`）→限界（ボール）→終わり。各場面は頭3秒に plan.png、本編は左に正面映像・右に指示と Claude の返答。`--preview` で代表コマだけ確認できる。公開後に `--repo-url` を付けて書き直す
 - 画面に個人情報（ユーザー名・パス・通知）を映さない。シミュレータの書き出し映像だけで組む
