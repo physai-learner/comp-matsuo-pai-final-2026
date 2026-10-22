@@ -4,7 +4,8 @@ uv run python scripts/make_video.py                   # outputs/video.mp4（720p
 uv run python scripts/make_video.py --repo-url <URL>  # 最後の画面にコードの URL を出す
 uv run python scripts/make_video.py --preview         # 代表コマを outputs/video_preview/ へ
 
-素材は scripts/record_scenes.py --planner claude で書き出したもの（outputs/scenes/claude/）。
+素材は scripts/record_scenes.py --planner claude で書き出したもの（outputs/scenes/claude/）と、
+ROS 2 版の実行ログ（ros2/record_run.sh → outputs/ros2/）。
 """
 
 import argparse
@@ -265,6 +266,73 @@ def act_frames(f: Fonts) -> Iterator[np.ndarray]:
     yield from hold(np.asarray(c), 10.0)
 
 
+def arrow(d, a, b, width: int = 3) -> None:
+    """a から b への矢印（先端は b）。"""
+    d.line((a, b), fill=ACCENT, width=width)
+    v = np.subtract(b, a) / np.hypot(*np.subtract(b, a))
+    n = np.array([-v[1], v[0]])
+    tip = np.array(b)
+    d.polygon([tuple(tip), tuple(tip - 16 * v + 8 * n), tuple(tip - 16 * v - 8 * n)], fill=ACCENT)
+
+
+def ros2_log_lines() -> tuple[str, list[str]]:
+    """ros2/record_run.sh の記録から、指示と tidy の表示（1件目の運搬だけ段階まで）を取る。"""
+    src = ROOT / "outputs" / "ros2"
+    launch = (src / "launch.log").read_text(encoding="utf-8", errors="replace")
+    instruction = launch.split("plan: ", 1)[1].splitlines()[0]
+    msgs = [
+        line.split("[tidy]: ", 1)[1]
+        for line in (src / "tidy.log").read_text(encoding="utf-8").splitlines()
+        if "[tidy]: " in line
+    ]
+    out, moves = [], 0
+    for m in msgs:
+        if " -> " in m:
+            moves += 1
+            out.append(m.split("  (")[0])  # 机上の座標は画面では省く
+        elif m.startswith("  "):
+            if moves == 1:
+                out.append("    " + m.strip())
+        else:
+            out.append(m)
+    return instruction, out
+
+
+def ros2_frames(f: Fonts) -> Iterator[np.ndarray]:
+    """ROS 2 版：ノードのつながりと、実行ログ。"""
+    c = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(c)
+    d.text((60, 44), "ROS 2 版：同じ処理をノードに分けた", font=f(36, bold=True), fill=ACCENT)
+    sub = "講義と同じ ROS 2 Humble の環境で、指示1つから計画・運搬・確認までをつないだ"
+    d.text((60, 104), sub, font=f(22), fill=MUTED)
+
+    nodes = {
+        "tidy": ((60, 330, 270, 440), "指示を受け、\n順に呼び出す"),
+        "planner": ((420, 170, 680, 280), "Claude で計画"),
+        "sim": ((420, 500, 680, 610), "MuJoCo の\nアームとカメラ"),
+    }
+    for name, (box, role) in nodes.items():
+        d.rounded_rectangle(box, radius=14, fill=BOX)
+        d.text((box[0] + 18, box[1] + 14), name, font=f(26, bold=True), fill=FG)
+        text_block(d, (box[0] + 18, box[1] + 52), role, f(18), MUTED, box[2] - box[0] - 30, 4)
+    arrow(d, (270, 365), (420, 240))
+    d.text((250, 250), "action /plan", font=f(18), fill=FG)
+    arrow(d, (270, 410), (420, 545))
+    text_block(d, (60, 470), "action /pick_place\nservice /reset・/get_state", f(18), FG, 300, 4)
+    arrow(d, (550, 500), (550, 280))
+    d.multiline_text((325, 345), "topic\n/overhead/image_raw", font=f(18), fill=FG, spacing=4)
+
+    x0, y0 = 730, 170
+    instruction, lines = ros2_log_lines()
+    d.rounded_rectangle((x0, y0, W - 40, y0 + 70 + 27 * len(lines)), radius=14, fill=BOX)
+    y = text_block(d, (x0 + 20, y0 + 16), f"$ tidy「{instruction}」", f(20, bold=True), ACCENT, 470)
+    for line in lines:
+        y = text_block(d, (x0 + 20, y + 4), line, f(19), FG, 470, 4)
+    note = "計画 10.4秒、運搬は1回 約15秒。実機に移すときは sim をロボットのドライバに置き換える"
+    text_block(d, (60, 650), note, f(22), FG, W - 120)
+    yield from hold(np.asarray(c), 10.0)
+
+
 def end_frames(f: Fonts, repo_url: str | None) -> Iterator[np.ndarray]:
     c = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(c)
@@ -293,7 +361,7 @@ def fade(frames: list[np.ndarray] | Iterator[np.ndarray]) -> Iterator[np.ndarray
 def segments(f: Fonts, repo_url: str | None) -> list[tuple[str, Iterator[np.ndarray]]]:
     segs = [("title", title_frames(f)), ("flow", flow_frames(f))]
     segs += [(folder, scene_frames(folder, t, n, f)) for folder, t, n in SCENE_TEXT]
-    segs += [("result", result_frames(f)), ("act", act_frames(f))]
+    segs += [("result", result_frames(f)), ("act", act_frames(f)), ("ros2", ros2_frames(f))]
     segs += [(LIMIT[0], scene_frames(*LIMIT, f)), ("end", end_frames(f, repo_url))]
     return segs
 
