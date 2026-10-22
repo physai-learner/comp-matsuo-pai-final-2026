@@ -239,7 +239,7 @@ def result_frames(f: Fonts) -> Iterator[np.ndarray]:
     notes = (
         "無い物・曖昧な指示には、計画を出さずに理由を返すのを正解とした\n\n"
         "失敗5件はすべて「ボールを青い皿へ」\n\n"
-        "1回の計画 平均3.2秒・約1.4円"
+        "1回の計画 平均3.2秒"
     )
     text_block(d, (640, 150), notes, f(24), FG, W - 700)
     yield from hold(np.asarray(c), 9.0)
