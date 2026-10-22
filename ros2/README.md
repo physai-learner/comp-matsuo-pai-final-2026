@@ -1,4 +1,4 @@
-# ROS 2 版（3ノード構成）
+# ROS 2 版（4ノード構成）
 
 講義で使った Docker イメージ（ROS 2 Humble・Ubuntu 22.04・Python 3.10）の上で、
 tidy_arm をそのまま ROS 2 のノードに載せたもの。物理とロボットの制御は `tidy_arm` と同じコードを使う。
@@ -13,7 +13,7 @@ tidy_arm をそのまま ROS 2 のノードに載せたもの。物理とロボ�
    │  /joint_states                    │ action /plan
    │                                   │
    │ action /pick_place          tidy（指示を1つ受けて順に呼ぶ）
-   │ service /reset /get_state ◀───────┘
+   │ service /reset /get_state ◀─ evaluate（指示・配置・言語を変えて反復評価）
 ```
 
 | ノード | 役割 | 出すもの・受けるもの |
@@ -21,6 +21,7 @@ tidy_arm をそのまま ROS 2 のノードに載せたもの。物理とロボ�
 | `sim` | 実機ならロボットとカメラのドライバに当たる | 画像2本と関節角を publish・`pick_place`（段階を feedback）・`reset`・`get_state` |
 | `planner` | 真上画像と指示文から運ぶ物と置き先を決める | `overhead/image_raw` を subscribe・`plan`（画素を机上の点へ戻して返す） |
 | `tidy` | 指示を1つ受けて計画 → 運搬 → 確認を順に呼ぶ | 上の action と service の呼び出し側 |
+| `evaluate` | 指示・配置・言語を変えながら `tidy` と同じ呼び出しを繰り返し採点・記録する | 上の action と service の呼び出し側 |
 
 カメラとアームは同じ MuJoCo の世界を共有するので、`sim` に1つにまとめている。
 インターフェースの定義は `src/tidy_arm_interfaces`（`Move.msg`・`Plan.action`・`PickPlace.action`・`Reset.srv`・`GetState.srv`）。
