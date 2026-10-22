@@ -48,6 +48,19 @@ docker exec -it pai_final bash -c "source /workspace/ros2/env.sh && ros2 run tid
 `tidy` は計画した運搬と、各段階（approach・grasp・carry・release・retreat）、最後に物ごとの皿を表示する。
 launch の引数は `seed`（既定 0）・`realtime`（既定 true＝実時間に合わせて動かす）・`effort`（既定 medium）。
 
+## 評価を回す
+
+```powershell
+# sim と planner を起動 → 全指示 × 配置 × 言語を順に試す → 止める（Claude を試行の数だけ呼ぶ）
+docker exec pai_final bash /workspace/ros2/run_eval.sh --seeds 5 --lang ja en
+# 途中で止めたら --resume で続きから（CSV に既にある試行を飛ばす）
+docker exec pai_final bash /workspace/ros2/run_eval.sh --seeds 5 --lang ja en --resume
+```
+
+1試行＝reset → get_state（正解を求める）→ plan → 画素の採点 → 正しい計画なら pick_place → get_state（皿に載ったか）。
+採点の規則は ROS なし版と同じ `tidy_arm/judge.py`。結果は `outputs/eval_ros2.csv`（`--out` で変更）、
+launch のログは `outputs/ros2/eval_launch.log`。`--tasks basic spatial` のように名前の前方一致で絞れる。
+
 ## 動いている様子を見る
 
 ```powershell
