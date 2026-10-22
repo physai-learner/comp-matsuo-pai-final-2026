@@ -12,6 +12,7 @@ import imageio.v3 as iio
 import numpy as np
 from pydantic import BaseModel
 
+from tidy_arm.camera import Camera
 from tidy_arm.sim import Sim
 
 MODEL = "claude-opus-5-5"
@@ -176,12 +177,17 @@ class OraclePlanner:
         return Plan(moves=out, problem="")
 
 
+def to_world(cam: Camera, move: Move) -> tuple[np.ndarray, np.ndarray]:
+    """1件の計画の画素を、つかむ点・置く点（机上の xy・z は把持高さ）へ戻す。"""
+    pick = cam.pixel_to_world([move.pick.u, move.pick.v], z=ITEM_TOP_Z)
+    place = cam.pixel_to_world([move.place.u, move.place.v], z=PLATE_TOP_Z)
+    pick[2] = place[2] = GRASP_Z
+    return pick, place
+
+
 def execute(sim: Sim, plan: Plan) -> None:
     """計画の画素を机上の点へ戻し、順に運ぶ。カメラは固定なので最初に1回だけ取る。"""
     cam = sim.camera()
     for m in plan.moves:
-        pick = cam.pixel_to_world([m.pick.u, m.pick.v], z=ITEM_TOP_Z)
-        place = cam.pixel_to_world([m.place.u, m.place.v], z=PLATE_TOP_Z)
-        pick[2] = place[2] = GRASP_Z
-        sim.pick_and_place(pick, place)
+        sim.pick_and_place(*to_world(cam, m))
     sim.settle(0.5)

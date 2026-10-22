@@ -1,0 +1,4 @@
+---
+# 物ごとに、乗っている皿の名前（どの皿にも無ければ空）
+string[] items
+string[] plates

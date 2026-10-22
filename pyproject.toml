@@ -34,6 +34,8 @@ packages = ["tidy_arm"]
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+# ROS 2 Humble のコンテナ（Python 3.10）でも動かすので、3.11 以降の書き方を勧めさせない
+per-file-target-version = { "ros2/**" = "py310", "tidy_arm/**" = "py310" }
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

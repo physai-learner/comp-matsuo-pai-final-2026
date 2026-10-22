@@ -1,0 +1,4 @@
+# 机の上の配置を seed で作り直す
+int32 seed
+---
+bool success

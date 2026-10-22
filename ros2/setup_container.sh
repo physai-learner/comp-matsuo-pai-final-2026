@@ -20,6 +20,11 @@ fi
 /root/venv/bin/pip install -q "mujoco>=3.16" anthropic imageio imageio-ffmpeg python-dotenv "pillow>=10"
 # システムの pytest は古く、anyio のプラグインと合わないので venv 側に入れ直す
 /root/venv/bin/pip install -q --ignore-installed "pytest>=8"
+# システムの brotli 1.0.9 は古く、anthropic の HTTP クライアントが圧縮応答を展開できない
+/root/venv/bin/pip install -q --ignore-installed "brotli>=1.2"
+# tidy_arm は pyproject が Python 3.13 以上を求めて pip install できないので、パスを通して読む
+site=$(/root/venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+echo /workspace > "$site/tidy_arm.pth"
 
 # ROS の setup.bash は未定義の変数を参照するので、読み込む間だけ set -u を外す
 set +u

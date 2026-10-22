@@ -1,0 +1,8 @@
+# 机上の点 pick の物をつかみ、点 place に置く（ワールド座標 [m]・z は把持高さ）
+geometry_msgs/Point pick
+geometry_msgs/Point place
+---
+bool success
+---
+# approach・grasp・carry・release・retreat の順に届く
+string phase

@@ -1,0 +1,9 @@
+# 指示文と最新の真上画像から、運ぶ物と置き先を決める
+string instruction
+---
+# 実行する順。運ばないときは空
+Move[] moves
+# 運ばない・運べない理由（問題が無ければ空）
+string problem
+---
+string status
