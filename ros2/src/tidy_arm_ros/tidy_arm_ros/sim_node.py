@@ -5,7 +5,7 @@ publish   overhead/image_raw  真上カメラ（sensor_msgs/Image・rgb8）
           joint_states        アームと指の関節角
 action    pick_place          机上の点 pick の物をつかんで点 place に置く（段階を feedback で返す）
 service   reset               配置を seed で作り直す
-          get_state           物ごとに、乗っている皿
+          get_state           物ごとに、乗っている皿（と物・皿の位置）
 
 MuJoCo の世界は1つしか持てないので、カメラとアームを1つのノードにまとめている。
 """
@@ -20,6 +20,7 @@ import time  # noqa: E402
 import mujoco  # noqa: E402
 import numpy as np  # noqa: E402
 import rclpy  # noqa: E402
+from geometry_msgs.msg import Point  # noqa: E402
 from rclpy.action import ActionServer  # noqa: E402
 from rclpy.node import Node  # noqa: E402
 from sensor_msgs.msg import Image, JointState  # noqa: E402
@@ -32,6 +33,10 @@ from tidy_arm.sim import ITEMS, PLATES, Sim  # noqa: E402
 TICK_STEPS = 50
 # 止まっている間に publish する間隔 [s]（計画係が最新の真上画像を持てるように）
 IDLE_PERIOD = 0.5
+
+
+def point(xyz: np.ndarray) -> Point:
+    return Point(x=float(xyz[0]), y=float(xyz[1]), z=float(xyz[2]))
 
 
 def image_msg(image: np.ndarray, stamp, frame_id: str) -> Image:
@@ -125,6 +130,9 @@ class SimNode(Node):
     def _get_state(self, request, response):
         response.items = list(ITEMS)
         response.plates = [next((p for p in PLATES if self.sim.on_plate(i, p)), "") for i in ITEMS]
+        response.item_positions = [point(self.sim.item_pos(i)) for i in ITEMS]
+        response.plate_names = list(PLATES)
+        response.plate_positions = [point(self.sim.plate_pos(p)) for p in PLATES]
         return response
 
 

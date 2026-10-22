@@ -20,6 +20,7 @@ setup(
             "sim_node = tidy_arm_ros.sim_node:main",
             "planner_node = tidy_arm_ros.planner_node:main",
             "tidy = tidy_arm_ros.commander:main",
+            "evaluate = tidy_arm_ros.evaluator:main",
         ],
     },
 )

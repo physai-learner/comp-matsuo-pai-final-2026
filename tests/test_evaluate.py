@@ -70,6 +70,41 @@ def test_ambiguous_box_accepts_both_boxes(sim):
     assert evaluate.judge(sim, one, *accepted) == "wrong_count"
 
 
+def test_english_the_box_is_singular(sim):
+    """英語の "The box" は1個に決まる＝箱2つを運ぶのは誤り、保留だけが正解。"""
+    both = OraclePlanner(sim, [("red_box", "plate_blue"), ("purple_box", "plate_blue")]).plan(
+        None, ""
+    )
+    task = _task("ambiguous_box")
+    assert evaluate.judge(sim, both, *task.accepted(sim, "en")) == "should_refuse"
+    assert evaluate.judge(sim, both, *task.accepted(sim, "ja")) == "ok"  # 実際に運ぶので最後に
+    assert evaluate.judge(sim, Plan(moves=[], problem="which?"), *task.accepted(sim, "en")) == "ok"
+
+
+def test_english_keeps_the_same_answers(sim):
+    for t in TASKS:
+        if t.name != "ambiguous_box":
+            assert t.accepted(sim, "en") == t.accepted(sim, "ja"), t.name
+        assert t.text("en") and t.text("en") != t.text("ja"), t.name
+
+
+def test_scene_state_judges_like_the_sim(sim):
+    """ROS 2 版は sim ノードから受け取った位置だけで採点する＝Sim で採点したのと同じ結果になる。"""
+    from tidy_arm.judge import SceneState, check_plan
+
+    scene = SceneState(
+        items={n: sim.item_pos(n) for n in ITEMS}, plates={n: sim.plate_pos(n) for n in PLATES}
+    )
+    cam = sim.camera()
+    for name in ("basic_red_box_plate_blue", "spatial_left", "multi_except", "infeasible_ball"):
+        t = _task(name)
+        assert t.accepted(scene) == t.accepted(sim), name
+        plan = OraclePlanner(sim, t.expected(sim)).plan(None, "")
+        assert check_plan(scene, cam, plan, *t.accepted(scene)) == check_plan(
+            sim, cam, plan, *t.accepted(sim)
+        ), name
+
+
 def test_close_call_accepts_either_or_holding_back():
     best = tasks._best(["a", "b", "c"], {"a": 0.547, "b": 0.548, "c": 0.60}.get)
     assert best == ["a", "b"]

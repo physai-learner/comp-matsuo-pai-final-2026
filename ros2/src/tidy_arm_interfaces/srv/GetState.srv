@@ -2,3 +2,7 @@
 # 物ごとに、乗っている皿の名前（どの皿にも無ければ空）
 string[] items
 string[] plates
+# 物の中心と皿の中心（ワールド座標 [m]・items と plate_names の順）。評価で正解を求めるのに使う
+geometry_msgs/Point[] item_positions
+string[] plate_names
+geometry_msgs/Point[] plate_positions

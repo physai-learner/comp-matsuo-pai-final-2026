@@ -5,5 +5,10 @@ string instruction
 Move[] moves
 # 運ばない・運べない理由（問題が無ければ空）
 string problem
+# 計画を得られなかったときの種類（refusal / bad_output / out_of_image）。得られたら空
+string error
+# Claude に使ったトークン数
+int32 input_tokens
+int32 output_tokens
 ---
 string status
