@@ -7,6 +7,7 @@
 - **動作**：ピンホールカメラモデルで画素を机上の3次元位置に変換し、逆運動学（減衰最小二乗 IK）で把持・運搬する
 - **ROS 2 構成**：`sim`・`planner`・`tidy`・`evaluate` の4ノードに分割し、ROS 2 Humble 上で動作・評価する
 - **模倣学習との比較**：同じ課題で ACT（Action Chunking with Transformers）を学習し、成功率と向き不向きを比較した
+- **デモ動画**：https://youtu.be/zVYtn_cFofs
 - **詳細レポート**：[`docs/report.md`](docs/report.md)
 
 ## 環境（ROS なし版）
