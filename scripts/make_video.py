@@ -20,6 +20,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 SCENES = ROOT / "outputs" / "scenes" / "claude"
+JINGLE = ROOT / "outputs" / "jingle"
+DEFAULT_OP = JINGLE / "PAI応用1_最終課題_OP.mp4"
+DEFAULT_ED = JINGLE / "PAI応用1_最終課題_ED.mp4"
 
 W, H = 1280, 720
 FPS = 30
@@ -351,19 +354,39 @@ def end_frames(f: Fonts, repo_url: str | None) -> Iterator[np.ndarray]:
 # ---- つなぐ ----------------------------------------------------------------
 
 
-def fade(frames: list[np.ndarray] | Iterator[np.ndarray]) -> Iterator[np.ndarray]:
+def clip_frames(path: Path) -> Iterator[np.ndarray]:
+    for fr in iio.imread(path):
+        yield np.asarray(fit(fr, W, H))
+
+
+def fade(
+    frames: list[np.ndarray] | Iterator[np.ndarray],
+    fade_in: bool = True,
+    fade_out: bool = True,
+) -> Iterator[np.ndarray]:
     frames = list(frames)
     k = int(FADE * FPS)
     for i, fr in enumerate(frames):
-        a = min(1.0, (i + 1) / k, (len(frames) - i) / k)
+        a = 1.0
+        if fade_in:
+            a = min(a, (i + 1) / k)
+        if fade_out:
+            a = min(a, (len(frames) - i) / k)
         yield fr if a >= 1.0 else (fr * a).astype(np.uint8)
 
 
-def segments(f: Fonts, repo_url: str | None) -> list[tuple[str, Iterator[np.ndarray]]]:
-    segs = [("title", title_frames(f)), ("flow", flow_frames(f))]
+def segments(
+    f: Fonts, repo_url: str | None, op: Path | None = None, ed: Path | None = None
+) -> list[tuple[str, Iterator[np.ndarray]]]:
+    segs: list[tuple[str, Iterator[np.ndarray]]] = []
+    if op and op.exists():
+        segs.append(("op", clip_frames(op)))
+    segs += [("title", title_frames(f)), ("flow", flow_frames(f))]
     segs += [(folder, scene_frames(folder, t, n, f)) for folder, t, n in SCENE_TEXT]
     segs += [("result", result_frames(f)), ("act", act_frames(f)), ("ros2", ros2_frames(f))]
     segs += [(LIMIT[0], scene_frames(*LIMIT, f)), ("end", end_frames(f, repo_url))]
+    if ed and ed.exists():
+        segs.append(("ed", clip_frames(ed)))
     return segs
 
 
@@ -371,6 +394,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=ROOT / "outputs" / "video.mp4")
     ap.add_argument("--repo-url", help="最後の画面に出すコードの URL")
+    ap.add_argument("--op", type=Path, default=DEFAULT_OP, help="冒頭に挟む OP 動画")
+    ap.add_argument("--ed", type=Path, default=DEFAULT_ED, help="末尾に挟む ED 動画")
     ap.add_argument("--font", help="日本語フォント（.ttf/.ttc）。既定は OS の標準から探す")
     ap.add_argument("--preview", action="store_true", help="各場面の代表コマを PNG で出すだけ")
     args = ap.parse_args()
@@ -379,7 +404,7 @@ def main() -> None:
     if args.preview:
         out = ROOT / "outputs" / "video_preview"
         out.mkdir(parents=True, exist_ok=True)
-        for name, gen in segments(f, args.repo_url):
+        for name, gen in segments(f, args.repo_url, args.op, args.ed):
             frames = list(gen)
             iio.imwrite(out / f"{name}_a.png", frames[0])
             iio.imwrite(out / f"{name}_b.png", frames[len(frames) * 2 // 3])
@@ -392,9 +417,9 @@ def main() -> None:
     )
     writer.send(None)
     total = 0
-    for name, gen in segments(f, args.repo_url):
+    for name, gen in segments(f, args.repo_url, args.op, args.ed):
         n = 0
-        for fr in fade(gen):
+        for fr in fade(gen, fade_in=(name != "op"), fade_out=(name != "ed")):
             writer.send(np.ascontiguousarray(fr))
             n += 1
         total += n
