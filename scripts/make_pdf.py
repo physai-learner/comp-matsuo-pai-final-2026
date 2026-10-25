@@ -41,6 +41,7 @@ def main() -> None:
         preset="compact",
         kind="Physical AI 講座 最終課題",
         subtitle=SUBTITLE,
+        image_width_cm=14,  # 図1 を1ページ目に収める
     )
     pages, _ = apply_page_number_rule(str(docx_path), default=True)
     subprocess.run(
